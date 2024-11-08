@@ -64,17 +64,30 @@ from datetime import date
 
 @api_view(['POST'])
 def return_book(request):
+    """Endpoint to return a borrowed book and update its availability."""
     book_id = request.data.get("book_id")
     try:
+        # Retrieve the loan based on the book_id and ensure it's not already returned
         loan = Loan.objects.get(book_id=book_id, is_returned=False)
+        
+        # Mark the loan as returned
         loan.is_returned = True
-        loan.return_date = date.today()  # Set only the date
+        loan.return_date = date.today()  # Set the return date to today's date
         loan.save()
 
+        # Update the book's availability
+        book = loan.book
+        book.available = True  # Mark the book as available
+        book.save()
+
+        # Serialize and return the loan information as response
         serializer = LoanSerializer(loan)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     except Loan.DoesNotExist:
-        return Response({"error": "Loan record not found or book already returned."}, status=404)
+        # If no active loan exists for the given book_id, return an error
+        return Response({"error": "Loan record not found or book already returned."}, status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(['GET'])
 def active_loans(request, borrower_id):
